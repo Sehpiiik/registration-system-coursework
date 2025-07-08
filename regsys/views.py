@@ -189,6 +189,7 @@ def dispatcher(request):
                 subject='Аккаунт в системе регистрации ВШЭ',
                 message='Вы успешно создали аккаунт в системе регистрации на мероприятия НИУ ВШЭ - Нижний Новгород. Выбирайте интересующие вас события - и увидимся там!\n\nНе забывайте заполнить личную информацию в профиле, если хотите получать именные сертификаты.\n\nВаш текущий пароль: ' + password,
                 from_email=settings.EMAIL_HOST_USER,
+                fail_silently=False,
                 recipient_list=[email])
         except:
             messages.error(request, "При отправке письма произошла ошибка")
@@ -464,7 +465,6 @@ def completed(request):
                 category_check[0].delete()
             reg = Registration(timetable=t, guest=guest, status=Registration.Status.AFF)
             reg.save()
-    
     messages.success(request, "Регистрация успешно обновлена")
     return redirect(mylist)
 
