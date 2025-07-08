@@ -28,6 +28,7 @@ from django.urls import path, reverse_lazy
 from django.views.generic.base import RedirectView
 from .models import Event, Timetable, Guest, Registration, Tag, Tagmap
 from django.urls import reverse
+from django.core.validators import validate_email
 
 navbar_sign = {
     "left": {
@@ -179,6 +180,11 @@ def dispatcher(request):
     
     if sender == "signup":
         email = request.POST["email"]
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.error(request, "Введите валидный email")
+            return redirect(signup)
         password = get_random_string(10)
         needs_validation = True
         while needs_validation:
@@ -192,10 +198,6 @@ def dispatcher(request):
         except IntegrityError:
             messages.error(request, "К этой почте уже привязан другой аккаунт")
             return redirect(signup)
-        guest = Guest(user=user)
-        guest.save()
-        messages.success(request, "Ваш аккаунт успешно создан")
-        
         try:
             send_mail(
                 subject='Аккаунт в системе регистрации ВШЭ',
@@ -206,14 +208,16 @@ def dispatcher(request):
         except:
             messages.error(request, "При отправке письма произошла ошибка")
             return redirect(signup)
-        
-        messages.success(request, "Инструкции по входу отправлены на почту")
+        guest = Guest(user=user)
+        guest.save()
+        messages.success(request, "Ваш аккаунт успешно создан. Инструкции по входу отправлены на почту")
         return redirect(signin)
     
     if sender == "signin":
         user = authenticate(request, username=request.POST["email"], password=request.POST["password"])
         if user is not None:
             login(request, user)
+            return redirect(landing)
         else:
             messages.error(request, "Неверная почта или пароль")
             return redirect(signin)
@@ -274,7 +278,7 @@ def dispatcher(request):
             
 def signin(request):
     if request.user.is_authenticated:
-        return redirect(mylist)
+        return redirect(landing)
     context = {
         'navbar': navbar_sign,
     }
@@ -282,7 +286,7 @@ def signin(request):
 
 def signup(request):
     if request.user.is_authenticated:
-        return redirect(mylist)
+        return redirect(landing)
     context = {
         'navbar': navbar_sign,
     }
@@ -305,7 +309,6 @@ def forgot(request):
     return render(request, 'regsys/forgot.html', context)
 
 def landing(request):
-    print(request)
     if request.user.is_authenticated:
         if request.user.is_superuser or request.user.is_staff:
             # если админ (суперюзер или имеет доступ admin)
