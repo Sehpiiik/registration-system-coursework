@@ -4,7 +4,7 @@ from . import views
 
 urlpatterns = [
     path('admin/help/', views.help_admin, name='help_admin'),
-    path('admin/', admin.site.urls),
+    path('admin/', admin.site.urls, name='admin'),
     path('', views.landing, name='landing'),
     path('dispatcher/', views.dispatcher, name='dispatcher'),
     path('signup/', views.signup, name='signup'),

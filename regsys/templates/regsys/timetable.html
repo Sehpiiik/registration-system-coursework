@@ -87,8 +87,10 @@
 					</div>
 				</fieldset>
 				{% endfor %}
+				{% if is_staff == False %}
 				<button type="submit" id="submit" name="submit" class="primary-button text-label"
 					value="to_completed">Завершить регистрацию</button><br><br>
+				{% endif %}
 				{% else %}
 				<p class="text-body-regular col-base-600">Кажется, ты не выбрал ни одного дня для регистрации.
 					Попробуй снова!</p>

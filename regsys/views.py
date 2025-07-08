@@ -27,6 +27,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.urls import path, reverse_lazy
 from django.views.generic.base import RedirectView
 from .models import Event, Timetable, Guest, Registration, Tag, Tagmap
+from django.urls import reverse
 
 navbar_sign = {
     "left": {
@@ -42,6 +43,17 @@ navbar_profile = {
     "left": {
         "Профиль": "profile",
         "Моё расписание": "mylist",
+        "Мероприятия": "register",
+    },
+    "right": {
+        "Обратная связь": "feedback",
+        "Справка": "help",
+        "Выйти": "signout",
+    }
+}
+navbar_admin_profile = {
+    "left": {
+        "Админ-панель": "admin:index",
         "Мероприятия": "register",
     },
     "right": {
@@ -293,7 +305,11 @@ def forgot(request):
     return render(request, 'regsys/forgot.html', context)
 
 def landing(request):
+    print(request)
     if request.user.is_authenticated:
+        if request.user.is_superuser or request.user.is_staff:
+            # если админ (суперюзер или имеет доступ admin)
+            return redirect(f"{reverse('register')}?staff={int(request.user.is_staff)}")
         return redirect(mylist)
     context = {
         'navbar': navbar_sign,
@@ -382,7 +398,7 @@ def profile(request):
 @login_required
 def register(request):
     all_events = Event.objects.filter().order_by("start_date")
-    
+    is_staff = request.user.is_staff or request.user.is_superuser
     filterbar = {}
     for type in Tag.Type.choices:
         t = {}
@@ -404,15 +420,17 @@ def register(request):
         tags = Tag.objects.filter(tagmap__event=event)
         events_future.update({event: tags})
     context = {
-        'navbar': navbar_profile,
+        'navbar': navbar_admin_profile if is_staff else navbar_profile,
         'filterbar': filterbar,
         'events_future': events_future,
+        'is_staff': is_staff,
     }
     return render(request, 'regsys/register.html', context)
 
 @login_required
 def timetable(request):
     event_id = request.POST.get("event_key", None)
+    is_staff = request.user.is_staff or request.user.is_superuser
     if not event_id:
         return redirect(register)
     event = Event.objects.get(id=event_id)
@@ -435,14 +453,19 @@ def timetable(request):
         cats.sort(key=letter_first_cmp)
         for cat in cats:
             c = {}
-            for tt in dated_tts.filter(category=cat):
-                c.update({tt: True if Registration.objects.filter(timetable=tt, guest=request.user.guest) else False})
+            if is_staff == False:
+                for tt in dated_tts.filter(category=cat):
+                    c.update({tt: True if Registration.objects.filter(timetable=tt, guest=request.user.guest) else False})
+            else:
+                for tt in dated_tts.filter(category=cat):
+                    c.update({tt: True})
             d.update({cat: c})
         timetable.update({date: d})
     context = {
         'timetable' : timetable,
         'event' : event,
-        'navbar': navbar_profile,
+        'navbar': navbar_admin_profile if is_staff else navbar_profile,
+        'is_staff': is_staff,
     }
     return render(request, 'regsys/timetable.html', context)
 
@@ -649,9 +672,4 @@ def qr_read(request):
     
 @staff_member_required   
 def help_admin(request):
-    response = HttpResponse(
-        open(str(settings.STATIC_ROOT) + '/regsys/help-admin.pdf', 'rb'),
-        content_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="help-admin.pdf"'},
-    )
-    return response
+    return render(request, 'admin/help.html')
