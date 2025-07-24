@@ -82,7 +82,7 @@ class Registration(models.Model):
         
     timetable = models.ForeignKey(Timetable, on_delete=models.CASCADE, verbose_name="Событие")
     guest = models.ForeignKey(Guest, on_delete=models.CASCADE, verbose_name="Участник")
-    status = models.CharField(choices=Status.choices, default=Status.AFF, verbose_name="Статус")
+    status = models.CharField(choices=Status.choices, default=Status.AFF,max_length=20, verbose_name="Статус")
     
     def __str__(self):
         return str(self.timetable) + " / " + str(self.guest)
@@ -108,7 +108,7 @@ class Tag(models.Model):
         
     id = models.AutoField(primary_key=True, verbose_name="Номер")
     tag_name = models.CharField(max_length=50, verbose_name="Название", unique=True)
-    type = models.CharField(choices=Type.choices, verbose_name="Тип")
+    type = models.CharField(choices=Type.choices,max_length=50, verbose_name="Тип")
     
     def __str__(self):
         return self.tag_name

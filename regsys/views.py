@@ -27,6 +27,11 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.urls import path, reverse_lazy
 from django.views.generic.base import RedirectView
 from .models import Event, Timetable, Guest, Registration, Tag, Tagmap
+from django.urls import reverse
+from django.core.validators import validate_email
+import logging
+logger = logging.getLogger(__name__)
+
 
 navbar_sign = {
     "left": {
@@ -42,6 +47,17 @@ navbar_profile = {
     "left": {
         "Профиль": "profile",
         "Моё расписание": "mylist",
+        "Мероприятия": "register",
+    },
+    "right": {
+        "Обратная связь": "feedback",
+        "Справка": "help",
+        "Выйти": "signout",
+    }
+}
+navbar_admin_profile = {
+    "left": {
+        "Админ-панель": "admin:index",
         "Мероприятия": "register",
     },
     "right": {
@@ -167,6 +183,11 @@ def dispatcher(request):
     
     if sender == "signup":
         email = request.POST["email"]
+        try:
+            validate_email(email)
+        except ValidationError:
+            messages.error(request, "Введите валидный email")
+            return redirect(signup)
         password = get_random_string(10)
         needs_validation = True
         while needs_validation:
@@ -180,10 +201,6 @@ def dispatcher(request):
         except IntegrityError:
             messages.error(request, "К этой почте уже привязан другой аккаунт")
             return redirect(signup)
-        guest = Guest(user=user)
-        guest.save()
-        messages.success(request, "Ваш аккаунт успешно создан")
-        
         try:
             send_mail(
                 subject='Аккаунт в системе регистрации ВШЭ',
@@ -192,16 +209,20 @@ def dispatcher(request):
                 fail_silently=False,
                 recipient_list=[email])
         except:
+            logger.exception("Ошибка отправки регистрационного письма")
+            user.delete()
             messages.error(request, "При отправке письма произошла ошибка")
             return redirect(signup)
-        
-        messages.success(request, "Инструкции по входу отправлены на почту")
+        guest = Guest(user=user)
+        guest.save()
+        messages.success(request, "Ваш аккаунт успешно создан. Инструкции по входу отправлены на почту")
         return redirect(signin)
     
     if sender == "signin":
         user = authenticate(request, username=request.POST["email"], password=request.POST["password"])
         if user is not None:
             login(request, user)
+            return redirect(landing)
         else:
             messages.error(request, "Неверная почта или пароль")
             return redirect(signin)
@@ -262,7 +283,7 @@ def dispatcher(request):
             
 def signin(request):
     if request.user.is_authenticated:
-        return redirect(mylist)
+        return redirect(landing)
     context = {
         'navbar': navbar_sign,
     }
@@ -270,7 +291,7 @@ def signin(request):
 
 def signup(request):
     if request.user.is_authenticated:
-        return redirect(mylist)
+        return redirect(landing)
     context = {
         'navbar': navbar_sign,
     }
@@ -294,6 +315,9 @@ def forgot(request):
 
 def landing(request):
     if request.user.is_authenticated:
+        if request.user.is_superuser or request.user.is_staff:
+            # если админ (суперюзер или имеет доступ admin)
+            return redirect(f"{reverse('register')}?staff={int(request.user.is_staff)}")
         return redirect(mylist)
     context = {
         'navbar': navbar_sign,
@@ -382,7 +406,7 @@ def profile(request):
 @login_required
 def register(request):
     all_events = Event.objects.filter().order_by("start_date")
-    
+    is_staff = request.user.is_staff or request.user.is_superuser
     filterbar = {}
     for type in Tag.Type.choices:
         t = {}
@@ -404,15 +428,17 @@ def register(request):
         tags = Tag.objects.filter(tagmap__event=event)
         events_future.update({event: tags})
     context = {
-        'navbar': navbar_profile,
+        'navbar': navbar_admin_profile if is_staff else navbar_profile,
         'filterbar': filterbar,
         'events_future': events_future,
+        'is_staff': is_staff,
     }
     return render(request, 'regsys/register.html', context)
 
 @login_required
 def timetable(request):
     event_id = request.POST.get("event_key", None)
+    is_staff = request.user.is_staff or request.user.is_superuser
     if not event_id:
         return redirect(register)
     event = Event.objects.get(id=event_id)
@@ -435,14 +461,19 @@ def timetable(request):
         cats.sort(key=letter_first_cmp)
         for cat in cats:
             c = {}
-            for tt in dated_tts.filter(category=cat):
-                c.update({tt: True if Registration.objects.filter(timetable=tt, guest=request.user.guest) else False})
+            if is_staff == False:
+                for tt in dated_tts.filter(category=cat):
+                    c.update({tt: True if Registration.objects.filter(timetable=tt, guest=request.user.guest) else False})
+            else:
+                for tt in dated_tts.filter(category=cat):
+                    c.update({tt: True})
             d.update({cat: c})
         timetable.update({date: d})
     context = {
         'timetable' : timetable,
         'event' : event,
-        'navbar': navbar_profile,
+        'navbar': navbar_admin_profile if is_staff else navbar_profile,
+        'is_staff': is_staff,
     }
     return render(request, 'regsys/timetable.html', context)
 
@@ -649,9 +680,4 @@ def qr_read(request):
     
 @staff_member_required   
 def help_admin(request):
-    response = HttpResponse(
-        open(str(settings.STATIC_ROOT) + '/regsys/help-admin.pdf', 'rb'),
-        content_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="help-admin.pdf"'},
-    )
-    return response
+    return render(request, 'admin/help.html')

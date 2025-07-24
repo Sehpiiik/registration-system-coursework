@@ -83,6 +83,20 @@ CACHES = {
     }
 }
 
+#Logging
+LOGGING = {
+  "version": 1,
+  "disable_existing_loggers": False,
+  "handlers": {
+    "console": {"class": "logging.StreamHandler", "level": "DEBUG"},
+    "file": {"class": "logging.FileHandler", "level": "ERROR", "filename": "error.log"},
+  },
+  "loggers": {
+    "": {"handlers": ["console", "file"], "level": "DEBUG"},
+    "django": {"handlers": ["console", "file"], "level": "INFO", "propagate": True},
+  }
+}
+
 # Database
 # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
@@ -123,7 +137,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
@@ -132,6 +145,8 @@ EMAIL_HOST = environ.get("EMAIL_HOST")
 EMAIL_PORT = 587
 
 EMAIL_USE_TLS = True
+
+EMAIL_USE_SSL = False
 
 EMAIL_HOST_USER = environ.get("EMAIL_HOST_USER")
 
@@ -168,3 +183,10 @@ LOGIN_URL = "signin"
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+if environ.get('ON_SERVER') == 'True':
+    CSRF_TRUSTED_ORIGINS = environ.get('CSRF_TRUSTED_ORIGINS').split(' ')
+
+    CORS_ALLOWED_ORIGINS = environ.get('CORS_ALLOWED_ORIGINS').split(' ')
+
+    CORS_ALLOW_CREDENTIALS = True
