@@ -138,7 +138,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Email
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'backends.email_backend.UnsafeEmailBackend'
 
 EMAIL_HOST = environ.get("EMAIL_HOST")
 

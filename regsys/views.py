@@ -1,4 +1,5 @@
 import datetime
+import re
 import csv
 import io
 import qrcode
@@ -30,8 +31,8 @@ from .models import Event, Timetable, Guest, Registration, Tag, Tagmap
 from django.urls import reverse
 from django.core.validators import validate_email
 import logging
-logger = logging.getLogger(__name__)
 
+logger = logging.getLogger(__name__)
 
 navbar_sign = {
     "left": {
@@ -67,59 +68,111 @@ navbar_admin_profile = {
     }
 }
 
+
+def parse_category(category: str):
+    """
+    Возвращает кортеж (start_time, end_time) или None, если не удалось распарсить.
+    """
+    # Берём только часть до первой запятой (чтобы убрать "обед" и т.п.)
+    time_part = category.split(",")[0].strip()
+
+    # Ищем время формата HH.MM-HH.MM
+    match = re.match(r"(\d{1,2}\.\d{2})\s*-\s*(\d{1,2}\.\d{2})", time_part)
+    if not match:
+        return None
+
+    start = datetime.datetime.strptime(match.group(1), "%H.%M").time()
+    end = datetime.datetime.strptime(match.group(2), "%H.%M").time()
+    return start, end
+
+def find_overlaps():
+    timetables = list(Timetable.objects.all().order_by("date", "category"))
+    overlaps = []
+
+    for i, t1 in enumerate(timetables):
+        interval1 = parse_category(t1.category)
+        if not interval1:
+            continue
+        start1, end1 = interval1
+
+        for t2 in timetables[i+1:]:
+            # проверяем только тот же день
+            if t1.date != t2.date:
+                continue
+
+            interval2 = parse_category(t2.category)
+            if not interval2:
+                continue
+            start2, end2 = interval2
+
+            # проверка пересечения интервалов
+            if start1 < end2 and start2 < end1 and (start1!=start2 or end1!=end2):
+                overlaps.append((t1.id, t2.id))
+
+    return overlaps
+
+def build_overlap_dict():
+    overlaps = find_overlaps()
+    mapping = {}
+    for t1, t2 in overlaps:
+        mapping.setdefault(t1, []).append(t2)
+        mapping.setdefault(t2, []).append(t1)
+    return mapping
+
 def get_paragraph_style(style):
     if style == 'header':
         pdfmetrics.registerFont(
-            TTFont('HSESans-SemiBold', 
-            str(settings.STATIC_ROOT) + '/regsys/fonts/HSESans-SemiBold.ttf')
+            TTFont('HSESans-SemiBold',
+                   str(settings.STATIC_ROOT) + '/regsys/fonts/HSESans-SemiBold.ttf')
         )
         return ParagraphStyle('header',
-            fontName="HSESans-SemiBold",
-            fontSize=22,
-            textColor='#273883',
-            alignment=1,
-            leading=30,
-        )
+                              fontName="HSESans-SemiBold",
+                              fontSize=22,
+                              textColor='#273883',
+                              alignment=1,
+                              leading=30,
+                              )
     if style == 'subheader':
         pdfmetrics.registerFont(
-            TTFont('HSESans-SemiBold', 
-            str(settings.STATIC_ROOT) + '/regsys/fonts/HSESans-SemiBold.ttf')
+            TTFont('HSESans-SemiBold',
+                   str(settings.STATIC_ROOT) + '/regsys/fonts/HSESans-SemiBold.ttf')
         )
         return ParagraphStyle('subheader',
-            fontName="HSESans-SemiBold",
-            fontSize=16,
-            textColor='#374b9b',
-            alignment=0,
-            leading=20,
-        )
+                              fontName="HSESans-SemiBold",
+                              fontSize=16,
+                              textColor='#374b9b',
+                              alignment=0,
+                              leading=20,
+                              )
     if style == 'regular':
         pdfmetrics.registerFont(
-            TTFont('HSESans-Regular', 
-            str(settings.STATIC_ROOT) + '/regsys/fonts/HSESans-Regular.ttf')
+            TTFont('HSESans-Regular',
+                   str(settings.STATIC_ROOT) + '/regsys/fonts/HSESans-Regular.ttf')
         )
         return ParagraphStyle('regular',
-            fontName="HSESans-Regular",
-            fontSize=16,
-            textColor='#848588',
-            alignment=0,
-            leading=20,
-            leftIndent=30,
-            firstLineIndent=-30,
-        )
+                              fontName="HSESans-Regular",
+                              fontSize=16,
+                              textColor='#848588',
+                              alignment=0,
+                              leading=20,
+                              leftIndent=30,
+                              firstLineIndent=-30,
+                              )
     if style == 'regular_centered':
         pdfmetrics.registerFont(
-            TTFont('HSESans-Regular', 
-            str(settings.STATIC_ROOT) + '/regsys/fonts/HSESans-Regular.ttf')
+            TTFont('HSESans-Regular',
+                   str(settings.STATIC_ROOT) + '/regsys/fonts/HSESans-Regular.ttf')
         )
         return ParagraphStyle('regular',
-            fontName="HSESans-Regular",
-            fontSize=16,
-            textColor='#848588',
-            alignment=1,
-            leading=20,
-            leftIndent=30,
-            firstLineIndent=-30,
-        )
+                              fontName="HSESans-Regular",
+                              fontSize=16,
+                              textColor='#848588',
+                              alignment=1,
+                              leading=20,
+                              leftIndent=30,
+                              firstLineIndent=-30,
+                              )
+
 
 @cmp_to_key
 def letter_first_cmp(a, b):
@@ -130,16 +183,17 @@ def letter_first_cmp(a, b):
     else:
         return (a > b) - (a < b)
 
+
 def dispatcher(request):
     sender = request.POST.get("submit", "")
     if not sender:
         sender = request.GET.get("submit", "")
-    
+
     if sender == "delete":
         event = Event.objects.get(id=request.POST.get("event_key", None))
         Registration.objects.filter(timetable__event=event, guest=request.user.guest).delete()
         messages.warning(request, "Регистрации на событие \"" + event.event_name + "\" удалены")
-    
+
     if sender == "edit_info":
         guest = request.user.guest
         if request.POST.get("surname", ""):
@@ -161,7 +215,7 @@ def dispatcher(request):
             return redirect(profile)
         messages.success(request, "Изменения успешно сохранены")
         return redirect(profile)
-    
+
     if sender == "edit_creds":
         user = authenticate(request, username=request.user.username, password=request.POST["old"])
         if user is not None:
@@ -180,7 +234,7 @@ def dispatcher(request):
         else:
             messages.error(request, "Неверный старый пароль")
             return redirect(profile)
-    
+
     if sender == "signup":
         email = request.POST["email"]
         try:
@@ -217,7 +271,7 @@ def dispatcher(request):
         guest.save()
         messages.success(request, "Ваш аккаунт успешно создан. Инструкции по входу отправлены на почту")
         return redirect(signin)
-    
+
     if sender == "signin":
         user = authenticate(request, username=request.POST["email"], password=request.POST["password"])
         if user is not None:
@@ -226,7 +280,7 @@ def dispatcher(request):
         else:
             messages.error(request, "Неверная почта или пароль")
             return redirect(signin)
-          
+
     if sender == "forgot":
         filter = User.objects.filter(username=request.POST["email"])
         if filter:
@@ -253,9 +307,10 @@ def dispatcher(request):
             messages.success(request, "Инструкции по восстановлению аккаунта отправлены на почту")
             return redirect(signin)
         else:
-            messages.error(request, "Аккаунт с такой почтой не найден. Возможно, вы ввели почту неправильно или еще не регистрировались?")
+            messages.error(request,
+                           "Аккаунт с такой почтой не найден. Возможно, вы ввели почту неправильно или еще не регистрировались?")
             return redirect(forgot)
-            
+
     if sender == "feedback":
         guest_id = request.POST["guest_id"]
         if guest_id == "anon":
@@ -278,9 +333,10 @@ def dispatcher(request):
             return redirect(feedback)
         messages.success(request, "Письмо отправлено, спасибо!")
         return redirect(feedback)
-          
+
     return redirect(mylist)
-            
+
+
 def signin(request):
     if request.user.is_authenticated:
         return redirect(landing)
@@ -288,6 +344,7 @@ def signin(request):
         'navbar': navbar_sign,
     }
     return render(request, 'regsys/signin.html', context)
+
 
 def signup(request):
     if request.user.is_authenticated:
@@ -297,6 +354,7 @@ def signup(request):
     }
     return render(request, 'regsys/signup.html', context)
 
+
 def feedback_anon(request):
     if request.user.is_authenticated:
         return redirect(feedback)
@@ -304,7 +362,8 @@ def feedback_anon(request):
         'navbar': navbar_sign,
     }
     return render(request, 'regsys/feedback_anon.html', context)
-    
+
+
 def forgot(request):
     if request.user.is_authenticated:
         return redirect(mylist)
@@ -312,6 +371,7 @@ def forgot(request):
         'navbar': navbar_sign,
     }
     return render(request, 'regsys/forgot.html', context)
+
 
 def landing(request):
     if request.user.is_authenticated:
@@ -324,6 +384,7 @@ def landing(request):
     }
     return render(request, 'regsys/landing.html', context)
 
+
 def help_anon(request):
     if request.user.is_authenticated:
         return redirect(help)
@@ -331,6 +392,7 @@ def help_anon(request):
         'navbar': navbar_sign,
     }
     return render(request, 'regsys/help_anon.html', context)
+
 
 def errors(request):
     if request.user.is_authenticated:
@@ -344,19 +406,21 @@ def errors(request):
     except:
         return render(request, 'regsys/errors.html', context)
 
+
 @login_required
 def signout(request):
     logout(request)
     return redirect(signin)
 
+
 @login_required
 def mylist(request):
     guest = request.user.guest
-            
+
     regs_past = {}
     regs_future = {}
     all_regs = Timetable.objects.filter(registration__guest=guest.id).order_by("event__start_date", "date", "category")
-    
+
     events_list = all_regs.order_by("event__event_name").values_list("event__event_name", flat=True).distinct()
     events = []
     for name in events_list:
@@ -370,9 +434,11 @@ def mylist(request):
             entries = all_regs.order_by("category").filter(event=event, date=date)
             for entry in entries:
                 reg = Registration.objects.get(timetable=entry, guest=guest)
-                if reg.status == Registration.Status.INT and not Registration.objects.filter(guest=guest, status=Registration.Status.AFF, timetable__category=entry.category):
+                if reg.status == Registration.Status.INT and not Registration.objects.filter(guest=guest,
+                                                                                             status=Registration.Status.AFF,
+                                                                                             timetable__category=entry.category):
                     reg.status = Registration.Status.AFF
-                    reg.save() 
+                    reg.save()
                     messages.success(request, "Пересечения в категории \"" + entry.category + "\" исправлены")
                 if date < datetime.date.today() and not reg.is_past():
                     reg.status = Registration.Status.MIS
@@ -386,14 +452,15 @@ def mylist(request):
             regs_past.update({event: e_past})
         if e_future:
             regs_future.update({event: e_future})
-        
+
     context = {
-        'regs_past' : regs_past,
-        'regs_future' : regs_future,
-        'guest' : guest,
+        'regs_past': regs_past,
+        'regs_future': regs_future,
+        'guest': guest,
         'navbar': navbar_profile,
     }
     return render(request, 'regsys/mylist.html', context)
+
 
 @login_required
 def profile(request):
@@ -402,6 +469,7 @@ def profile(request):
         'navbar': navbar_profile,
     }
     return render(request, 'regsys/profile.html', context)
+
 
 @login_required
 def register(request):
@@ -421,7 +489,7 @@ def register(request):
         if checked:
             all_events = all_events.filter(tagmap__tag__in=checked)
         filterbar.update({type: t})
-    
+
     events_future = {}
     all_future = all_events.filter(end_date__gte=datetime.date.today())
     for event in all_future:
@@ -435,6 +503,7 @@ def register(request):
     }
     return render(request, 'regsys/register.html', context)
 
+
 @login_required
 def timetable(request):
     event_id = request.POST.get("event_key", None)
@@ -442,7 +511,7 @@ def timetable(request):
     if not event_id:
         return redirect(register)
     event = Event.objects.get(id=event_id)
-    
+
     dates = []
     i = 0
     while True:
@@ -451,7 +520,7 @@ def timetable(request):
         i += 1
         if cur_date == event.end_date:
             break
-    
+
     timetable = {}
     all_tts = Timetable.objects.filter(event=event_id).order_by("date", "category", "timetable_name")
     for date in dates:
@@ -463,33 +532,38 @@ def timetable(request):
             c = {}
             if is_staff == False:
                 for tt in dated_tts.filter(category=cat):
-                    c.update({tt: True if Registration.objects.filter(timetable=tt, guest=request.user.guest) else False})
+                    c.update(
+                        {tt: True if Registration.objects.filter(timetable=tt, guest=request.user.guest) else False})
             else:
                 for tt in dated_tts.filter(category=cat):
-                    c.update({tt: True})
+                    c.update({tt: False})
             d.update({cat: c})
         timetable.update({date: d})
+    overlap_dict = build_overlap_dict()
     context = {
-        'timetable' : timetable,
-        'event' : event,
+        'timetable': timetable,
+        'event': event,
         'navbar': navbar_admin_profile if is_staff else navbar_profile,
         'is_staff': is_staff,
+        'overlap_mapping': overlap_dict,
     }
     return render(request, 'regsys/timetable.html', context)
 
-@login_required    
+
+@login_required
 def completed(request):
     if request.POST.get("submit", "") != "to_completed":
         return redirect(register)
-        
+
     event_id = request.POST["event_id"]
     guest = request.user.guest
     for key, value in request.POST.dict().items():
         if "category_" in key:
             t = Timetable.objects.get(id=value)
-            
+
             unique_check = Registration.objects.filter(timetable=t, guest=guest)
-            category_check = Registration.objects.filter(timetable__category=t.category, guest=guest, status=Registration.Status.AFF)
+            category_check = Registration.objects.filter(timetable__category=t.category, guest=guest,
+                                                         status=Registration.Status.AFF)
             if unique_check:
                 continue
             elif category_check:
@@ -499,7 +573,8 @@ def completed(request):
     messages.success(request, "Регистрация успешно обновлена")
     return redirect(mylist)
 
-@login_required    
+
+@login_required
 def download(request):
     timestamp = str(datetime.datetime.now())
     filename = "timetable_" + timestamp + ".pdf"
@@ -507,19 +582,19 @@ def download(request):
         content_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="%s"' % filename},
     )
-    
+
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=A4)
     x, y = A4
     margin = 30
     h_cur = margin
-    
+
     event = Event.objects.get(id=request.GET["event_key"])
     header = Paragraph(str(event), get_paragraph_style('header'))
-    w, h = header.wrapOn(can, x - 2*margin, y - 2*margin)
+    w, h = header.wrapOn(can, x - 2 * margin, y - 2 * margin)
     header.drawOn(can, margin, y - h - h_cur)
     h_cur += h
-    
+
     dates = []
     i = 0
     while True:
@@ -529,14 +604,15 @@ def download(request):
         if cur_date == event.end_date:
             break
     guest = request.user.guest
-    all_tts = Timetable.objects.filter(event=event, registration__guest=guest.id, date__gte=datetime.date.today()).order_by("date", "category")
-    for date in dates:   
+    all_tts = Timetable.objects.filter(event=event, registration__guest=guest.id,
+                                       date__gte=datetime.date.today()).order_by("date", "category")
+    for date in dates:
         h_cur += 20
         subheader = Paragraph(date.strftime('%d.%m.%Y'), get_paragraph_style('subheader'))
-        w, h = subheader.wrapOn(can, x - 2*margin, y - 2*margin)
+        w, h = subheader.wrapOn(can, x - 2 * margin, y - 2 * margin)
         subheader.drawOn(can, margin, y - h - h_cur)
         h_cur += h
-        
+
         dated_tts = all_tts.filter(date=date)
         cats = list(dated_tts.order_by("category").values_list("category", flat=True).distinct())
         cats.sort(key=letter_first_cmp)
@@ -546,10 +622,10 @@ def download(request):
                 str(tt.category) + ':  ' + str(tt.timetable_name) + ',  ' + str(tt.place),
                 get_paragraph_style('regular')
             )
-            w, h = line.wrapOn(can, x - 2*margin, y - 2*margin)
+            w, h = line.wrapOn(can, x - 2 * margin, y - 2 * margin)
             line.drawOn(can, margin, y - h - h_cur)
             h_cur += h
-    
+
     can.showPage()
     can.save()
     packet.seek(0)
@@ -559,28 +635,31 @@ def download(request):
         page = new_pdf.pages[i]
         output.add_page(page)
     output.write(response)
-    
+
     return response
-    
-@login_required    
-def feedback(request):   
+
+
+@login_required
+def feedback(request):
     guest = request.user.guest
     context = {
-        'guest' : guest,
+        'guest': guest,
         'navbar': navbar_profile,
     }
     return render(request, 'regsys/feedback.html', context)
 
-@login_required   
+
+@login_required
 def help(request):
     guest = request.user.guest
     context = {
-        'guest' : guest,
+        'guest': guest,
         'navbar': navbar_profile,
     }
     return render(request, 'regsys/help.html', context)
-    
-@login_required    
+
+
+@login_required
 def certificate(request):
     timestamp = str(datetime.datetime.now())
     filename = "certificate_" + timestamp + ".pdf"
@@ -588,46 +667,46 @@ def certificate(request):
         content_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="%s"' % filename},
     )
-    
+
     event = Event.objects.get(id=request.GET["event_key"])
     guest = request.user.guest
     regs = Registration.objects.filter(guest=guest, status=Registration.Status.VIS, timetable__event=event)
-    
+
     packet = io.BytesIO()
     can = canvas.Canvas(packet, pagesize=A4)
     x, y = A4
     margin = 30
-    
+
     name_str = ' '.join([guest.surname, guest.firstname, guest.patronymic])
     name_par = Paragraph(name_str, get_paragraph_style('header'))
-    w, h = name_par.wrapOn(can, x - 2*margin, 80)
-    name_par.drawOn(can, margin, y - h - 280 - (80-h)/2)
-    
+    w, h = name_par.wrapOn(can, x - 2 * margin, 80)
+    name_par.drawOn(can, margin, y - h - 280 - (80 - h) / 2)
+
     event_par = Paragraph(str(event), get_paragraph_style('header'))
-    w, h = event_par.wrapOn(can, x - 2*margin, 200)
+    w, h = event_par.wrapOn(can, x - 2 * margin, 200)
     event_par.drawOn(can, margin, y - h - 400)
     h_cur = h + 420
-    
+
     date_str = event.start_date.strftime('%d.%m.%Y')
     if event.start_date != event.end_date:
         date_str = 'с ' + event.start_date.strftime('%d.%m.%Y') + ' по ' + event.end_date.strftime('%d.%m.%Y')
     date_par = Paragraph(date_str, get_paragraph_style('regular_centered'))
-    w, h = date_par.wrapOn(can, x - 2*margin, y - 2*margin)
+    w, h = date_par.wrapOn(can, x - 2 * margin, y - 2 * margin)
     date_par.drawOn(can, margin, y - h - h_cur)
-    
+
     can.showPage()
-    
+
     margin = 50
     h_cur = 140
     for reg in regs:
         line = Paragraph(str(reg.timetable), get_paragraph_style('regular'))
-        w, h = line.wrapOn(can, x - 2*margin, y - 2*margin)
+        w, h = line.wrapOn(can, x - 2 * margin, y - 2 * margin)
         line.drawOn(can, margin, y - h - h_cur)
         h_cur += h
-    
+
     can.save()
     packet.seek(0)
-    
+
     new_pdf = PdfReader(packet)
     template_pdf = PdfReader(open(str(settings.STATIC_ROOT) + '/regsys/template-certificate.pdf', 'rb'))
     output = PdfWriter(response)
@@ -639,10 +718,11 @@ def certificate(request):
         page.merge_page(new_pdf.pages[i])
         output.add_page(page)
     output.write(response)
-    
+
     return response
-    
-@login_required    
+
+
+@login_required
 def qr_generate(request):
     timestamp = str(datetime.datetime.now())
     filename = "qr_" + timestamp + ".png"
@@ -650,21 +730,22 @@ def qr_generate(request):
         content_type="image/png",
         headers={"Content-Disposition": 'attachment; filename="%s"' % filename},
     )
-    
+
     link = 'https://hse-reg-sys.dns-dynamic.net/qr/read/'
     link += '?timetable=' + str(request.GET["timetable"])
     link += '&guest=' + str(request.GET["guest"])
     qr = qrcode.QRCode()
     qr.add_data(link)
     qr.make()
-    img = qr.make_image(back_color=(232,234,244), fill_color=(26,39,109))
+    img = qr.make_image(back_color=(232, 234, 244), fill_color=(26, 39, 109))
     img.save(response)
     return response
-    
+
+
 @staff_member_required
 def qr_read(request):
     timetable = Timetable.objects.get(id=request.GET["timetable"])
-    guest = Guest.objects.get(id=request.GET["guest"])  
+    guest = Guest.objects.get(id=request.GET["guest"])
     try:
         reg = Registration.objects.get(timetable=timetable, guest=guest)
         if reg.status == Registration.Status.AFF:
@@ -677,7 +758,8 @@ def qr_read(request):
     except:
         pass
     return redirect('admin:index')
-    
-@staff_member_required   
+
+
+@staff_member_required
 def help_admin(request):
     return render(request, 'admin/help.html')

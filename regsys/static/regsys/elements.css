@@ -387,3 +387,15 @@ td {
   padding-top: 20px;
   padding-bottom: 10px;
 }
+
+.disabled-slot {
+    opacity: 0.4;
+    pointer-events: none;
+    transition: opacity 0.4s ease-in-out, background-color 0.4s ease-in-out;
+    background-color: #f0f0f0; /* мягкий серый фон */
+    border-radius: 6px;
+}
+
+input.radio {
+    transition: opacity 0.4s ease-in-out;
+}

@@ -4,13 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5f84df78-4d9f-45b2-a15f-f4d1e8985105" name="Changes" comment="#1 made email validation">
-      <change afterPath="$PROJECT_DIR$/.idea/sqldialects.xml" afterDir="false" />
+    <list default="true" id="5f84df78-4d9f-45b2-a15f-f4d1e8985105" name="Changes" comment="logging and other">
+      <change afterPath="$PROJECT_DIR$/.idea/dataSources.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/backends/email_backend.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/reg_sys_cw/asgi.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/reg_sys_cw/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/reg_sys_cw/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/regsys/migrations/0001_initial.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/regsys/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/regsys/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/regsys/static/regsys/elements.css" beforeDir="false" afterPath="$PROJECT_DIR$/regsys/static/regsys/elements.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/regsys/templates/regsys/timetable.html" beforeDir="false" afterPath="$PROJECT_DIR$/regsys/templates/regsys/timetable.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/regsys/templatetags/extra-tags.py" beforeDir="false" afterPath="$PROJECT_DIR$/regsys/templatetags/extra-tags.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/regsys/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/regsys/views.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -54,7 +55,7 @@
     </favorite-branches>
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="admin-version-of-main-page" />
+        <entry key="$PROJECT_DIR$" value="email-validation" />
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -85,7 +86,7 @@
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;email-validation&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -101,6 +102,13 @@
     ]
   }
 }</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="X:\ForProg\PyCharmProjects\registration-system" />
+      <recent name="X:\ForProg\PyCharmProjects\registration-system\reg_sys_cw\backends" />
+      <recent name="X:\ForProg\PyCharmProjects\registration-system\reg_sys_cw" />
+    </key>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -140,7 +148,14 @@
       <workItem from="1752603479355" duration="1454000" />
       <workItem from="1753288486276" duration="1000" />
       <workItem from="1753377158890" duration="600000" />
-      <workItem from="1753377788206" duration="6120000" />
+      <workItem from="1753377788206" duration="10162000" />
+      <workItem from="1753470793224" duration="11699000" />
+      <workItem from="1753543847318" duration="8585000" />
+      <workItem from="1757265882573" duration="6286000" />
+      <workItem from="1757358657857" duration="7853000" />
+      <workItem from="1757433691742" duration="2940000" />
+      <workItem from="1757521870049" duration="297000" />
+      <workItem from="1757522623062" duration="25000" />
     </task>
     <task id="LOCAL-00001" summary="minor changes">
       <option name="closed" value="true" />
@@ -166,7 +181,15 @@
       <option name="project" value="LOCAL" />
       <updated>1752016087290</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="logging and other">
+      <option name="closed" value="true" />
+      <created>1753385928685</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1753385928685</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -176,6 +199,7 @@
     <MESSAGE value="minor changes" />
     <MESSAGE value="made an admin version" />
     <MESSAGE value="#1 made email validation" />
-    <option name="LAST_COMMIT_MESSAGE" value="#1 made email validation" />
+    <MESSAGE value="logging and other" />
+    <option name="LAST_COMMIT_MESSAGE" value="logging and other" />
   </component>
 </project>
