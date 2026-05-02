@@ -1,11 +1,15 @@
 from urllib.parse import urlencode
 from django.contrib import admin
+from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.auth.models import Group, User
 from django.urls import reverse
 from django.utils.html import format_html
 from django.conf import settings
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.core.mail import EmailMessage
+from import_export.admin import ExportMixin
 from .models import Event, Timetable, Guest, Registration, Tag, Tagmap
     
 @admin.action(description="Пометить выбранные записи как Посещённые")
@@ -79,8 +83,22 @@ def mass_mail(modeladmin, request, queryset):
         })
     return render(request,'admin/mass_mail.html',context=context)
 
+admin.site.unregister(Group)
+admin.site.unregister(User)
+
+
+@admin.register(Group)
+class GroupAdmin(ExportMixin, DjangoGroupAdmin):
+    pass
+
+
+@admin.register(User)
+class UserAdmin(ExportMixin, DjangoUserAdmin):
+    pass
+
+
 @admin.register(Event)
-class EventAdmin(admin.ModelAdmin):
+class EventAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ("event_name", "start_date", "end_date", "place", "timetables_link", "tags_link")
     list_filter = ["start_date", "end_date", "place"]
     search_fields = ["event_name", "start_date", "end_date", "place", "tagmap__tag__type"]
@@ -109,7 +127,7 @@ class EventAdmin(admin.ModelAdmin):
     tags_link.short_description = "Теги"
 
 @admin.register(Timetable)
-class TimetableAdmin(admin.ModelAdmin):
+class TimetableAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ("timetable_name", "event", "category", "date", "place", "host", "repeating", "seats", "registrations_link")
     list_filter = ["event", "category", "date", "repeating"]
     search_fields = ["timetable_name", "event__event_name", "category", "date", "place", "host"]
@@ -132,7 +150,7 @@ class TimetableAdmin(admin.ModelAdmin):
     registrations_link.short_description = "Записи"
 
 @admin.register(Guest)
-class GuestAdmin(admin.ModelAdmin):
+class GuestAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ("user", "phone", "surname", "firstname", "patronymic", "school", "telegram", "registrations_link")
     list_filter = []
     search_fields = ["user__username", "phone", "surname", "firstname", "patronymic", "school", "telegram"]
@@ -150,7 +168,7 @@ class GuestAdmin(admin.ModelAdmin):
     registrations_link.short_description = "Записи"
 
 @admin.register(Registration)
-class RegistrationAdmin(admin.ModelAdmin):
+class RegistrationAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ("key", "status_verbose")
     list_filter = ["timetable__event", "status"]
     search_fields = ["timetable__timetable_name", "guest__surname", "guest__firstname", "timetable__event__event_name"]
@@ -166,7 +184,7 @@ class RegistrationAdmin(admin.ModelAdmin):
     status_verbose.short_description = "Статус"
     
 @admin.register(Tag)
-class TagAdmin(admin.ModelAdmin):
+class TagAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ("tag_name", "type_verbose", "events_link")
     list_filter = ["type"]
     search_fields = ["tag_name"]
@@ -187,7 +205,7 @@ class TagAdmin(admin.ModelAdmin):
     type_verbose.short_description = "Тип"
 
 @admin.register(Tagmap)
-class TagmapAdmin(admin.ModelAdmin):
+class TagmapAdmin(ExportMixin, admin.ModelAdmin):
     list_display = ("key",)
     list_filter = ["event", "tag__type"]
     search_fields = ["event__event_name", "tag__tag_name"]

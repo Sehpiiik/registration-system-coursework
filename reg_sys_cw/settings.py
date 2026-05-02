@@ -39,6 +39,7 @@ ALLOWED_HOSTS = environ.get('ALLOWED_HOSTS').split(' ')
 
 INSTALLED_APPS = [
     'regsys',
+    'import_export',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
